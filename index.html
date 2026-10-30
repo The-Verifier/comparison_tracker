@@ -170,12 +170,25 @@
   .exports { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; padding: 14px 16px; border-top: 1px solid var(--line); }
   .exports .status { text-align: left; margin: 0; flex: 1 1 200px; }
   .exports label.btn { display: inline-block; }
+
+  .conn { display: flex; flex-direction: column; gap: 12px; }
+  label.inline { display: inline-flex; flex-direction: row; align-items: center; gap: 8px; font-size: 13px; color: var(--ink-2); }
+  label.inline input, .conn .fgrid input { font: inherit; font-size: 14px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; min-width: 0; }
+  label.inline input { width: 200px; max-width: 100%; }
+  .conn .fgrid label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-2); min-width: 0; }
+  .setup { display: flex; flex-direction: column; gap: 12px; border-top: 1px solid var(--line); padding-top: 12px; }
+  .steps { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+  .sql { width: 100%; font-family: var(--font-num); font-size: 12px; background: var(--surface-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px; padding: 10px; resize: vertical; }
+  .whocell { text-align: left; white-space: normal; min-width: 220px; }
+  .who { display: block; font-size: 12px; line-height: 1.5; }
+  .who-r { color: var(--good); } .who-s { color: var(--warn); } .who-l { color: var(--bad); }
+  .vbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
 </style>
 
 </head><body><div class="app">
   <header>
     <h1>Invoice Reconciler</h1>
-    <p class="lede">Compare invoice PDFs against your vendors and clients, and keep a daily record of what you received and paid. Everything stays in your browser.</p>
+    <p class="lede">Compare invoice PDFs against your vendors and clients, and keep a daily record of what you received and paid. Invoice PDFs are read in your browser and never uploaded.</p>
   </header>
   <nav class="tabs" aria-label="Pages"><button type="button" class="tab" id="tab-mismatch" data-page="mismatch">Invoice mismatch</button><button type="button" class="tab" id="tab-payments" data-page="payments">Payments &amp; profit</button></nav>
   <div id="view-mismatch" class="view">
@@ -184,25 +197,29 @@
     <div id="results" aria-live="polite"></div>
   </div>
   <div id="view-payments" class="view" hidden>
-    <section class="panel" id="pay-add">
-      <div class="head"><h2 id="pf-title">Add an entry</h2><span class="muted small">Saved on this device only</span></div>
-      <form class="body" id="pay-form" autocomplete="off">
-        <div class="seg" role="group" aria-label="Entry type">
-          <button type="button" data-ptype="received" aria-pressed="true">Received from client</button>
-          <button type="button" data-ptype="sent" aria-pressed="false">Paid to vendor</button>
-        </div>
-        <div class="fgrid">
-          <label>Date<input type="date" id="pf-date" required></label>
-          <label><span id="pf-party-label">Client</span><input type="text" id="pf-party" list="pf-list" required maxlength="80" placeholder="Type or pick a name"></label>
-          <label>Amount (USDT)<input type="text" id="pf-amount" inputmode="decimal" required placeholder="0.00"></label>
-          <label class="wide">Note (optional)<input type="text" id="pf-note" maxlength="300" placeholder="Transaction hash, reference, anything useful"></label>
-        </div>
-        <datalist id="pf-list"></datalist>
-        <div class="actions"><button class="btn" type="button" id="pf-submit">Add entry</button><button class="btn ghost" type="button" id="pf-cancel" hidden>Cancel edit</button><span id="pf-msg" class="muted small" role="status"></span></div>
-      </form>
-      <div id="pay-day"></div>
-    </section>
-    <div id="pay-out"></div>
+    <section class="panel" id="pay-conn"></section>
+    <div id="pay-app" class="view">
+      <section class="panel" id="pay-add">
+        <div class="head"><h2 id="pf-title">Add an entry</h2><span class="muted small">Received from a client, paid to a vendor, or a mismatch loss</span></div>
+        <form class="body" id="pay-form" autocomplete="off">
+          <div class="seg" role="group" aria-label="Entry type">
+            <button type="button" data-ptype="received" aria-pressed="true">Received from client</button>
+            <button type="button" data-ptype="sent" aria-pressed="false">Paid to vendor</button>
+            <button type="button" data-ptype="loss" aria-pressed="false">Mismatch loss</button>
+          </div>
+          <div class="fgrid">
+            <label>Date<input type="date" id="pf-date" required></label>
+            <label><span id="pf-party-label">Client</span><input type="text" id="pf-party" list="pf-list" required maxlength="80" placeholder="Type or pick a name"></label>
+            <label>Amount (USDT)<input type="text" id="pf-amount" inputmode="decimal" required placeholder="0.00"></label>
+            <label class="wide">Note (optional)<input type="text" id="pf-note" maxlength="300" placeholder="Transaction hash, reference, anything useful"></label>
+          </div>
+          <datalist id="pf-list"></datalist>
+          <div class="actions"><button class="btn" type="button" id="pf-submit">Add entry</button><button class="btn ghost" type="button" id="pf-cancel" hidden>Cancel edit</button><span id="pf-msg" class="muted small" role="status"></span></div>
+        </form>
+        <div id="pay-day"></div>
+      </section>
+      <div id="pay-out" class="view"></div>
+    </div>
   </div>
 </div>
 
@@ -1124,6 +1141,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var pad = function (n) { return String(n).padStart(2, '0'); };
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  var TYPE_LABEL = { received: 'Received', sent: 'Sent', loss: 'Mismatch loss' };
   var parse = function (s) { var p = s.split('-').map(Number); return new Date(Date.UTC(p[0], p[1] - 1, p[2])); };
   var ymd = function (d) { return d.getUTCFullYear() + '-' + pad(d.getUTCMonth() + 1) + '-' + pad(d.getUTCDate()); };
   var addDays = function (s, n) { var d = parse(s); d.setUTCDate(d.getUTCDate() + n); return ymd(d); };
@@ -1145,26 +1163,68 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   var monthLabel = function (ym) { return ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][+ym.slice(5) - 1] + ' ' + ym.slice(0, 4); };
   var round = function (v) { return Math.round(v * 1e6) / 1e6; };
   var key = function (n) { return String(n).trim().replace(/\s+/g, ' ').toLowerCase(); };
+  var cleanName = function (n) { return String(n).trim().replace(/\s+/g, ' '); };
   var inRange = function (list, a, b) { return list.filter(function (e) { return e.date >= a && e.date <= b; }); };
+  var m2 = function (v) { return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+
+  function groupBy(list, nameOf, init, add) {
+    var m = new Map();
+    list.forEach(function (e) {
+      var nm = cleanName(nameOf(e) || '') || 'Not set', k = key(nm);
+      var x = m.get(k);
+      if (!x) { x = init(nm); m.set(k, x); }
+      add(x, e);
+    });
+    return Array.from(m.values());
+  }
 
   function summarize(list) {
-    var rec = 0, sent = 0, c = new Map(), v = new Map();
-    list.forEach(function (e) {
-      var m = e.type === 'received' ? c : v;
-      var k = key(e.party);
-      var x = m.get(k) || { name: String(e.party).trim().replace(/\s+/g, ' '), total: 0, count: 0 };
-      x.total += e.amount; x.count++; m.set(k, x);
-      if (e.type === 'received') rec += e.amount; else sent += e.amount;
-    });
-    var arr = function (m) { return Array.from(m.values()).map(function (x) { return { name: x.name, total: round(x.total), count: x.count }; }).sort(function (a, b) { return b.total - a.total || a.name.localeCompare(b.name); }); };
-    return { received: round(rec), sent: round(sent), profit: round(rec - sent), count: list.length, clients: arr(c), vendors: arr(v) };
+    var rec = 0, sent = 0, loss = 0;
+    list.forEach(function (e) { if (e.type === 'received') rec += e.amount; else if (e.type === 'sent') sent += e.amount; else loss += e.amount; });
+    var party = function (type) {
+      return groupBy(list.filter(function (e) { return e.type === type; }), function (e) { return e.party; },
+        function (nm) { return { name: nm, total: 0, count: 0 }; },
+        function (x, e) { x.total += e.amount; x.count++; })
+        .map(function (x) { return { name: x.name, total: round(x.total), count: x.count }; })
+        .sort(function (a, b) { return b.total - a.total || a.name.localeCompare(b.name); });
+    };
+    var members = groupBy(list, function (e) { return e.by; },
+      function (nm) { return { name: nm, count: 0, received: 0, sent: 0, loss: 0 }; },
+      function (x, e) { x.count++; x[e.type === 'received' ? 'received' : e.type === 'sent' ? 'sent' : 'loss'] += e.amount; })
+      .map(function (x) { return { name: x.name, count: x.count, received: round(x.received), sent: round(x.sent), loss: round(x.loss) }; })
+      .sort(function (a, b) { return b.count - a.count || a.name.localeCompare(b.name); });
+    return {
+      received: round(rec), sent: round(sent), loss: round(loss),
+      gross: round(rec - sent), profit: round(rec - sent - loss), count: list.length,
+      clients: party('received'), vendors: party('sent'), losses: party('loss'), members: members
+    };
+  }
+
+  // "FastWay +1,500.00 | Chat Link -400.00 | Beta (loss) -50.00"
+  function detailParts(list) {
+    var order = { received: 0, sent: 1, loss: 2 };
+    var rows = groupBy(list, function (e) { return e.type + '\u0000' + e.party; },
+      function (nm) { return { type: null, name: null, total: 0 }; },
+      function (x, e) { x.type = e.type; x.name = cleanName(e.party); x.total += e.amount; });
+    return rows.sort(function (a, b) { return order[a.type] - order[b.type] || b.total - a.total; })
+      .map(function (x) { return { type: x.type, name: x.name, total: round(x.total) }; });
+  }
+  function detailText(list, minus) {
+    return detailParts(list).map(function (x) {
+      return x.name + (x.type === 'loss' ? ' (loss) ' : ' ') + (x.type === 'received' ? '+' : (minus || '-')) + m2(x.total);
+    }).join('; ');
+  }
+
+  function rowFrom(label, from, to, list, part) {
+    var s = summarize(list);
+    return { label: label, from: from, to: to, part: !!part, received: s.received, sent: s.sent, gross: s.gross, loss: s.loss, profit: s.profit, count: s.count, parts: detailParts(list) };
   }
 
   function dayRows(entries, ws) {
     var rows = [];
     for (var i = 0; i < 7; i++) {
-      var d = addDays(ws, i), s = summarize(entries.filter(function (e) { return e.date === d; }));
-      rows.push({ label: DOW[i] + ' ' + short(d), from: d, to: d, received: s.received, sent: s.sent, profit: s.profit, count: s.count });
+      var d = addDays(ws, i);
+      rows.push(rowFrom(DOW[i] + ' ' + short(d), d, d, entries.filter(function (e) { return e.date === d; })));
     }
     return rows;
   }
@@ -1173,21 +1233,23 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var r = monthRange(ym), first = r[0], last = r[1], rows = [];
     for (var ws = weekStart(first); ws <= last; ws = addDays(ws, 7)) {
       var we = addDays(ws, 6), from = ws < first ? first : ws, to = we > last ? last : we;
-      var s = summarize(inRange(entries, from, to));
-      rows.push({ label: from === to ? short(from) : short(from) + ' to ' + short(to), from: from, to: to, part: from !== ws || to !== we, received: s.received, sent: s.sent, profit: s.profit, count: s.count });
+      rows.push(rowFrom(from === to ? short(from) : short(from) + ' to ' + short(to), from, to, inRange(entries, from, to), from !== ws || to !== we));
     }
     return rows;
   }
 
-  function toBackup(entries) { return { app: 'invoice-reconciler', version: 1, exportedAt: new Date().toISOString(), entries: entries }; }
+  function toBackup(entries) { return { app: 'invoice-reconciler', version: 2, exportedAt: new Date().toISOString(), entries: entries }; }
   function cleanEntry(e) {
     if (!e || typeof e !== 'object') return null;
     var amount = Number(e.amount);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(e.date || '') || !(amount > 0) || !isFinite(amount)) return null;
-    if (e.type !== 'received' && e.type !== 'sent') return null;
+    if (e.type !== 'received' && e.type !== 'sent' && e.type !== 'loss') return null;
     var party = String(e.party || '').trim();
     if (!party) return null;
-    return { id: String(e.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7))), date: e.date, type: e.type, party: party, amount: amount, note: String(e.note || '').slice(0, 300) };
+    return {
+      id: String(e.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7))), date: e.date, type: e.type, party: party, amount: amount,
+      note: String(e.note || '').slice(0, 300), by: String(e.by || '').slice(0, 80), updatedBy: String(e.updatedBy || '').slice(0, 80)
+    };
   }
 
   // ---------- Excel ----------
@@ -1196,35 +1258,40 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     wb.creator = 'Invoice Reconciler';
     var HEAD = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1F3A4D' } }, alignment: { vertical: 'middle', horizontal: 'center', wrapText: true } };
     var head = function (row) { row.eachCell(function (c) { Object.assign(c, HEAD); }); row.height = 24; };
+    var bold = function (row) { row.eachCell({ includeEmpty: true }, function (c) { c.font = { bold: true }; c.border = { top: { style: 'thin' } }; }); };
     var money = '#,##0.00';
     var list = ctx.entries.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
     var s = ctx.summary;
 
     var sm = wb.addWorksheet('Summary', { views: [{ showGridLines: false }] });
     var en = wb.addWorksheet('Entries', { views: [{ state: 'frozen', ySplit: 1 }] });
-    en.columns = [{ width: 13 }, { width: 11 }, { width: 28 }, { width: 16 }, { width: 40 }];
-    head(en.getRow(1)); en.getRow(1).values = ['Date', 'Type', 'Party', 'Amount (USDT)', 'Note']; head(en.getRow(1));
+    en.columns = [{ width: 13 }, { width: 15 }, { width: 28 }, { width: 16 }, { width: 20 }, { width: 40 }];
+    en.getRow(1).values = ['Date', 'Type', 'Party', 'Amount (USDT)', 'Entered by', 'Note']; head(en.getRow(1));
     list.forEach(function (e, i) {
       var r = en.getRow(i + 2);
       r.getCell(1).value = parse(e.date); r.getCell(1).numFmt = 'yyyy-mm-dd';
-      r.getCell(2).value = e.type === 'received' ? 'Received' : 'Sent';
-      r.getCell(3).value = e.party; r.getCell(4).value = e.amount; r.getCell(4).numFmt = money; r.getCell(5).value = e.note || '';
+      r.getCell(2).value = TYPE_LABEL[e.type];
+      r.getCell(3).value = e.party; r.getCell(4).value = e.amount; r.getCell(4).numFmt = money;
+      r.getCell(5).value = e.by || ''; r.getCell(6).value = e.note || '';
     });
-    en.autoFilter = { from: 'A1', to: 'E' + Math.max(2, list.length + 1) };
+    en.autoFilter = { from: 'A1', to: 'F' + Math.max(2, list.length + 1) };
 
-    sm.columns = [{ width: 26 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 16 }];
+    sm.columns = [{ width: 30 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }, { width: 70 }];
     sm.getCell('A1').value = ctx.title; sm.getCell('A1').font = { bold: true, size: 16 };
     sm.getCell('A2').value = rangeLabel(ctx.from, ctx.to); sm.getCell('A2').font = { color: { argb: 'FF666666' } };
     var sumif = function (type, extra) { return 'SUMIFS(Entries!$D:$D,Entries!$B:$B,"' + type + '"' + (extra || '') + ')'; };
-    sm.getCell('A4').value = 'Received from clients (USDT)'; sm.getCell('B4').value = { formula: sumif('Received'), result: s.received };
-    sm.getCell('A5').value = 'Paid to vendors (USDT)'; sm.getCell('B5').value = { formula: sumif('Sent'), result: s.sent };
-    sm.getCell('A6').value = 'Profit (USDT)'; sm.getCell('B6').value = { formula: 'B4-B5', result: s.profit };
-    ['A4', 'A5', 'A6', 'B6'].forEach(function (a) { sm.getCell(a).font = { bold: true }; });
-    ['B4', 'B5', 'B6'].forEach(function (a) { sm.getCell(a).numFmt = money; });
-    sm.getColumn(2).width = 18;
+    var tiles = [
+      ['Received from clients (USDT)', { formula: sumif('Received'), result: s.received }],
+      ['Paid to vendors (USDT)', { formula: sumif('Sent'), result: s.sent }],
+      ['Gross profit (received - paid)', { formula: 'B4-B5', result: s.gross }],
+      ['Mismatch loss (USDT)', { formula: sumif('Mismatch loss'), result: s.loss }],
+      ['Net profit (gross - mismatch loss)', { formula: 'B6-B7', result: s.profit }]
+    ];
+    tiles.forEach(function (t, i) { sm.getCell('A' + (4 + i)).value = t[0]; sm.getCell('B' + (4 + i)).value = t[1]; sm.getCell('B' + (4 + i)).numFmt = money; });
+    ['A6', 'B6', 'A8', 'B8'].forEach(function (a) { sm.getCell(a).font = { bold: true }; });
 
-    var hr = 8;
-    sm.getRow(hr).values = [ctx.rowLabel, 'From', 'To', 'Received', 'Sent', 'Profit']; head(sm.getRow(hr));
+    var hr = 10;
+    sm.getRow(hr).values = [ctx.rowLabel, 'From', 'To', 'Received', 'Sent', 'Gross profit', 'Mismatch loss', 'Net profit', 'Who (client / vendor, amount)']; head(sm.getRow(hr));
     ctx.rows.forEach(function (x, i) {
       var r = hr + 1 + i, row = sm.getRow(r);
       row.getCell(1).value = x.label + (x.part ? ' (part week)' : '');
@@ -1233,18 +1300,21 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var range = ',Entries!$A:$A,">="&B' + r + ',Entries!$A:$A,"<="&C' + r;
       row.getCell(4).value = { formula: sumif('Received', range), result: x.received };
       row.getCell(5).value = { formula: sumif('Sent', range), result: x.sent };
-      row.getCell(6).value = { formula: 'D' + r + '-E' + r, result: x.profit };
-      [4, 5, 6].forEach(function (c) { row.getCell(c).numFmt = money; });
+      row.getCell(6).value = { formula: 'D' + r + '-E' + r, result: x.gross };
+      row.getCell(7).value = { formula: sumif('Mismatch loss', range), result: x.loss };
+      row.getCell(8).value = { formula: 'F' + r + '-G' + r, result: x.profit };
+      row.getCell(9).value = x.parts.map(function (p) { return p.name + (p.type === 'loss' ? ' (loss) ' : ' ') + (p.type === 'received' ? '+' : '-') + m2(p.total); }).join('; ');
+      row.getCell(9).alignment = { wrapText: true, vertical: 'top' };
+      [4, 5, 6, 7, 8].forEach(function (c) { row.getCell(c).numFmt = money; });
     });
     var tr = hr + 1 + ctx.rows.length, last = tr - 1, trow = sm.getRow(tr);
     trow.getCell(1).value = 'Total';
-    var tot = [s.received, s.sent, s.profit];
-    [4, 5, 6].forEach(function (c, i) {
-      var L = String.fromCharCode(64 + c);
-      trow.getCell(c).value = { formula: 'SUM(' + L + (hr + 1) + ':' + L + last + ')', result: ctx.rows.reduce(function (a, x) { return a + [x.received, x.sent, x.profit][i]; }, 0) };
+    [4, 5, 6, 7, 8].forEach(function (c) {
+      var L = String.fromCharCode(64 + c), k = ['received', 'sent', 'gross', 'loss', 'profit'][c - 4];
+      trow.getCell(c).value = { formula: 'SUM(' + L + (hr + 1) + ':' + L + last + ')', result: ctx.rows.reduce(function (a, x) { return a + x[k]; }, 0) };
       trow.getCell(c).numFmt = money;
     });
-    trow.eachCell({ includeEmpty: true }, function (c) { c.font = { bold: true }; c.border = { top: { style: 'thin' } }; });
+    bold(trow);
 
     var party = function (name, arr, label) {
       var w = wb.addWorksheet(name, { views: [{ state: 'frozen', ySplit: 1 }] });
@@ -1257,58 +1327,69 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       t.getCell(1).value = 'Total';
       t.getCell(2).value = { formula: 'SUM(B2:B' + (arr.length + 1) + ')', result: arr.reduce(function (a, x) { return a + x.count; }, 0) };
       t.getCell(3).value = { formula: 'SUM(C2:C' + (arr.length + 1) + ')', result: arr.reduce(function (a, x) { return a + x.total; }, 0) };
-      t.getCell(3).numFmt = money;
-      t.eachCell({ includeEmpty: true }, function (c) { c.font = { bold: true }; c.border = { top: { style: 'thin' } }; });
+      t.getCell(3).numFmt = money; bold(t);
     };
     party('By Client', s.clients, 'Client');
     party('By Vendor', s.vendors, 'Vendor');
+    party('Mismatch Loss', s.losses, 'Client / vendor');
+
+    var mw = wb.addWorksheet('By Member', { views: [{ state: 'frozen', ySplit: 1 }] });
+    mw.columns = [{ width: 26 }, { width: 10 }, { width: 16 }, { width: 16 }, { width: 16 }];
+    mw.getRow(1).values = ['Entered by', 'Entries', 'Received', 'Sent', 'Mismatch loss']; head(mw.getRow(1));
+    s.members.forEach(function (x, i) {
+      var r = mw.getRow(i + 2); r.values = [x.name, x.count, x.received, x.sent, x.loss];
+      [3, 4, 5].forEach(function (c) { r.getCell(c).numFmt = money; });
+    });
     return wb;
   }
 
   // ---------- PDF ----------
   function buildPdf(jsPDFCtor, ctx) {
     var doc = new jsPDFCtor({ unit: 'pt', format: 'a4' });
-    var s = ctx.summary, W = doc.internal.pageSize.getWidth(), M = 40;
-    var m2 = function (v) { return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); };
+    var s = ctx.summary, W = doc.internal.pageSize.getWidth(), M = 36;
     var sg = function (v) { return (v < 0 ? '-' : '') + m2(Math.abs(v)); };
     var ascii = function (t) { return String(t).replace(/[^\x20-\x7E]/g, '?'); };
-    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(ascii(ctx.title), M, 52);
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(18); doc.text(ascii(ctx.title), M, 50);
     doc.setFont('helvetica', 'normal'); doc.setFontSize(10); doc.setTextColor(100);
-    doc.text(ascii(rangeLabel(ctx.from, ctx.to)) + '   |   Amounts in USDT', M, 70);
+    doc.text(ascii(rangeLabel(ctx.from, ctx.to)) + '   |   Amounts in USDT', M, 68);
     doc.setTextColor(0);
-    var boxes = [['Received from clients', m2(s.received)], ['Paid to vendors', m2(s.sent)], ['Profit', sg(s.profit)]];
-    var bw = (W - M * 2 - 20) / 3;
+    var boxes = [['Received', m2(s.received)], ['Paid', m2(s.sent)], ['Gross profit', sg(s.gross)], ['Mismatch loss', m2(s.loss)], ['Net profit', sg(s.profit)]];
+    var gap = 8, bw = (W - M * 2 - gap * 4) / 5;
     boxes.forEach(function (b, i) {
-      var x = M + i * (bw + 10);
-      doc.setDrawColor(200); doc.rect(x, 86, bw, 52);
-      doc.setFontSize(9); doc.setTextColor(100); doc.text(b[0], x + 10, 102);
-      doc.setFontSize(15); doc.setFont('helvetica', 'bold');
-      doc.setTextColor(i === 2 ? (s.profit < 0 ? 180 : 20) : 0, i === 2 ? (s.profit < 0 ? 30 : 110) : 0, i === 2 ? (s.profit < 0 ? 40 : 70) : 0);
-      doc.text(b[1], x + 10, 126); doc.setFont('helvetica', 'normal'); doc.setTextColor(0);
+      var x = M + i * (bw + gap);
+      doc.setDrawColor(200); doc.rect(x, 82, bw, 50);
+      doc.setFontSize(8); doc.setTextColor(100); doc.text(b[0], x + 8, 97);
+      doc.setFontSize(12); doc.setFont('helvetica', 'bold');
+      if (i === 4) doc.setTextColor(s.profit < 0 ? 180 : 20, s.profit < 0 ? 30 : 110, s.profit < 0 ? 40 : 70); else doc.setTextColor(0);
+      doc.text(b[1], x + 8, 120); doc.setFont('helvetica', 'normal'); doc.setTextColor(0);
     });
-    var y = 156;
+    var y = 152;
     var HS = { fillColor: [31, 58, 77], textColor: 255, fontStyle: 'bold' };
-    var table = function (title, head, body, foot, colAlign) {
+    var table = function (title, headRow, body, foot, colAlign, widths) {
       if (!body.length) return;
       doc.setFontSize(11); doc.setFont('helvetica', 'bold');
       if (y > 740) { doc.addPage(); y = 50; }
       doc.text(title, M, y); doc.setFont('helvetica', 'normal');
-      var cs = {}; (colAlign || []).forEach(function (a, i) { if (a === 'r') cs[i] = { halign: 'right' }; });
-      doc.autoTable({ startY: y + 6, head: [head], body: body, foot: foot ? [foot] : undefined, margin: { left: M, right: M }, styles: { fontSize: 9, cellPadding: 4 }, headStyles: HS, footStyles: { fillColor: [235, 238, 241], textColor: 0, fontStyle: 'bold' }, columnStyles: cs });
-      y = doc.lastAutoTable.finalY + 22;
+      var cs = {}; (colAlign || []).forEach(function (a, i) { cs[i] = {}; if (a === 'r') cs[i].halign = 'right'; if (widths && widths[i]) cs[i].cellWidth = widths[i]; });
+      doc.autoTable({ startY: y + 6, head: [headRow], body: body, foot: foot ? [foot] : undefined, margin: { left: M, right: M }, styles: { fontSize: 8, cellPadding: 3, overflow: 'linebreak' }, headStyles: HS, footStyles: { fillColor: [235, 238, 241], textColor: 0, fontStyle: 'bold' }, columnStyles: cs });
+      y = doc.lastAutoTable.finalY + 20;
     };
-    var rowsB = ctx.rows.map(function (x) { return [ascii(x.label) + (x.part ? ' (part week)' : ''), m2(x.received), m2(x.sent), sg(x.profit)]; });
-    table(ctx.rowLabel + ' breakdown', [ctx.rowLabel, 'Received', 'Sent', 'Profit'], rowsB, ['Total', m2(s.received), m2(s.sent), sg(s.profit)], ['l', 'r', 'r', 'r']);
+    var det = function (parts) { return ascii(parts.map(function (p) { return p.name + (p.type === 'loss' ? ' (loss) ' : ' ') + (p.type === 'received' ? '+' : '-') + m2(p.total); }).join('; ')); };
+    table(ctx.rowLabel + ' breakdown', [ctx.rowLabel, 'Received', 'Sent', 'Gross', 'Loss', 'Net profit', 'Who (client / vendor)'],
+      ctx.rows.map(function (x) { return [ascii(x.label) + (x.part ? ' (part)' : ''), m2(x.received), m2(x.sent), sg(x.gross), m2(x.loss), sg(x.profit), det(x.parts)]; }),
+      ['Total', m2(s.received), m2(s.sent), sg(s.gross), m2(s.loss), sg(s.profit), ''], ['l', 'r', 'r', 'r', 'r', 'r', 'l'], [62, 50, 50, 50, 44, 52, null]);
     table('By client (received)', ['Client', 'Entries', 'Total'], s.clients.map(function (x) { return [ascii(x.name), String(x.count), m2(x.total)]; }), ['Total', '', m2(s.received)], ['l', 'r', 'r']);
     table('By vendor (paid)', ['Vendor', 'Entries', 'Total'], s.vendors.map(function (x) { return [ascii(x.name), String(x.count), m2(x.total)]; }), ['Total', '', m2(s.sent)], ['l', 'r', 'r']);
+    table('Mismatch loss', ['Client / vendor', 'Entries', 'Total'], s.losses.map(function (x) { return [ascii(x.name), String(x.count), m2(x.total)]; }), ['Total', '', m2(s.loss)], ['l', 'r', 'r']);
+    table('By team member', ['Entered by', 'Entries', 'Received', 'Sent', 'Loss'], s.members.map(function (x) { return [ascii(x.name), String(x.count), m2(x.received), m2(x.sent), m2(x.loss)]; }), null, ['l', 'r', 'r', 'r', 'r']);
     var list = ctx.entries.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; });
-    table('All entries', ['Date', 'Type', 'Party', 'Amount', 'Note'], list.map(function (e) { return [e.date, e.type === 'received' ? 'Received' : 'Sent', ascii(e.party), m2(e.amount), ascii(e.note || '')]; }), null, ['l', 'l', 'l', 'r', 'l']);
+    table('All entries', ['Date', 'Type', 'Party', 'Amount', 'By', 'Note'], list.map(function (e) { return [e.date, TYPE_LABEL[e.type], ascii(e.party), m2(e.amount), ascii(e.by || ''), ascii(e.note || '')]; }), null, ['l', 'l', 'l', 'r', 'l', 'l']);
     var n = doc.internal.getNumberOfPages();
     for (var i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(120); doc.text('Page ' + i + ' of ' + n, W - M, 812, { align: 'right' }); }
     return doc;
   }
 
-  var api = { parse: parse, ymd: ymd, addDays: addDays, weekStart: weekStart, monthRange: monthRange, addMonths: addMonths, short: short, full: full, rangeLabel: rangeLabel, monthLabel: monthLabel, summarize: summarize, dayRows: dayRows, weekRows: weekRows, inRange: inRange, toBackup: toBackup, cleanEntry: cleanEntry, buildWorkbook: buildWorkbook, buildPdf: buildPdf, key: key, round: round };
+  var api = { parse: parse, ymd: ymd, addDays: addDays, weekStart: weekStart, monthRange: monthRange, addMonths: addMonths, short: short, full: full, rangeLabel: rangeLabel, monthLabel: monthLabel, summarize: summarize, dayRows: dayRows, weekRows: weekRows, inRange: inRange, toBackup: toBackup, cleanEntry: cleanEntry, buildWorkbook: buildWorkbook, buildPdf: buildPdf, key: key, round: round, detailParts: detailParts, detailText: detailText, TYPE_LABEL: TYPE_LABEL };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Ledger = api;
 })(typeof globalThis !== 'undefined' ? globalThis : this);
 
@@ -1460,7 +1541,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
         '</div>';
     }
     return '<section class="panel"><div class="verdict"><div class="msg"><div class="big ' + tone + '">' + esc(head) + '</div><div class="sub">' + esc(sub.join(' ')) + '</div></div>' +
-      '<div><button class="btn" id="dl" type="button">Download Excel</button><div class="status" id="status">' + esc(state.status) + '</div></div></div>' + counts + '</section>';
+      '<div><div class="vbtns"><button class="btn" id="dl" type="button">Download Excel</button>' + (amt && amt.status === 'mismatch' ? '<button class="btn ghost" id="addloss" type="button">Add difference to losses</button>' : '') + '</div><div class="status" id="status">' + esc(state.status) + '</div></div></div>' + counts + '</section>';
   }
 
   function totalsTable(res) {
@@ -1592,6 +1673,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     var up = e.target.closest('[data-unpair]');
     if (up) { delete state.manual[up.dataset.unpair]; render(); return; }
     if (e.target.closest('#dl')) exportXlsx();
+    if (e.target.closest('#addloss') && window.__prefillLoss) window.__prefillLoss();
   });
   results.addEventListener('change', function (e) {
     var sel = e.target.closest('select[data-pair]');
@@ -1641,31 +1723,189 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   // =====================================================================
-  // Payments & profit
+  // Payments & profit (local mode, or shared team database on Supabase)
   // =====================================================================
   var Lg = globalThis.Ledger;
-  var LS_KEY = 'ir.ledger.v1';
+  var LS = { entries: 'ir.ledger.v1', cfg: 'ir.cfg', session: 'ir.session', name: 'ir.myname' };
+  var mem = {};
+  var store = {
+    get: function (k) { try { return localStorage.getItem(k); } catch (e) { return mem[k] == null ? null : mem[k]; } },
+    set: function (k, v) { try { localStorage.setItem(k, v); return true; } catch (e) { mem[k] = v; return false; } },
+    del: function (k) { try { localStorage.removeItem(k); } catch (e) {} delete mem[k]; }
+  };
   var pad2 = function (n) { return String(n).padStart(2, '0'); };
   var todayYmd = function () { var d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); };
-  var pay = { entries: [], mode: 'week', week: Lg.weekStart(todayYmd()), month: todayYmd().slice(0, 7), type: 'received', editing: null, delArm: null, storageOk: true, status: '' };
+  var uuid = function () {
+    try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch (e) {}
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) { var r = Math.random() * 16 | 0; return (c === 'x' ? r : (r & 3 | 8)).toString(16); });
+  };
+  var isUuid = function (s) { return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s)); };
+  var TL = Lg.TYPE_LABEL;
 
-  function loadPay() {
+  var pay = {
+    entries: [], mode: 'week', week: Lg.weekStart(todayYmd()), month: todayYmd().slice(0, 7), type: 'received',
+    editing: null, delArm: null, storageOk: true, status: '', cfg: null, session: null, showSetup: false, connMsg: '', connBad: false,
+    syncedAt: null, syncing: false, again: false, syncError: '', sig: '', myName: ''
+  };
+
+  var SETUP_SQL = [
+    'create table if not exists public.entries (',
+    '  id uuid primary key default gen_random_uuid(),',
+    '  entry_date date not null,',
+    "  type text not null check (type in ('received','sent','loss')),",
+    '  party text not null,',
+    '  amount numeric(18,6) not null check (amount > 0),',
+    "  note text default '',",
+    "  created_by_name text default '',",
+    "  created_by_email text default '',",
+    '  created_at timestamptz default now(),',
+    "  updated_by_name text default '',",
+    '  updated_at timestamptz default now()',
+    ');',
+    'alter table public.entries enable row level security;',
+    'create policy "team read" on public.entries for select to authenticated using (true);',
+    'create policy "team add" on public.entries for insert to authenticated with check (true);',
+    'create policy "team edit" on public.entries for update to authenticated using (true) with check (true);',
+    'create policy "team delete" on public.entries for delete to authenticated using (true);'
+  ].join('\n');
+
+  // ---------- local storage ----------
+  function readLocal() {
+    try { var raw = store.get(LS.entries); if (raw) return (JSON.parse(raw).entries || []).map(Lg.cleanEntry).filter(Boolean); } catch (e) {}
+    return [];
+  }
+  function saveLocal() { if (!store.set(LS.entries, JSON.stringify({ entries: pay.entries }))) pay.storageOk = false; }
+  try { localStorage.setItem('ir.probe', '1'); localStorage.removeItem('ir.probe'); } catch (e) { pay.storageOk = false; }
+
+  // ---------- team database (Supabase REST, plain fetch) ----------
+  var remoteReady = function () { return !!(pay.cfg && pay.session); };
+  var emailName = function () { return pay.session && pay.session.email ? pay.session.email.split('@')[0] : ''; };
+  var myName = function () { return pay.myName || emailName() || ''; };
+  var base = function () { return pay.cfg.url.replace(/\/+$/, ''); };
+  var authHeaders = function (extra) { return Object.assign({ apikey: pay.cfg.key, 'Content-Type': 'application/json' }, extra || {}); };
+
+  async function readJson(res) {
+    var t = await res.text(), j = null;
+    try { j = t ? JSON.parse(t) : null; } catch (e) {}
+    if (!res.ok) {
+      var msg = (j && (j.error_description || j.msg || j.message || j.error)) || t || ('Error ' + res.status);
+      var err = new Error(String(msg)); err.status = res.status; throw err;
+    }
+    return j;
+  }
+  function setSession(j, email) {
+    pay.session = { access_token: j.access_token, refresh_token: j.refresh_token, expires_at: Math.floor(Date.now() / 1000) + (j.expires_in || 3600), email: (j.user && j.user.email) || email || (pay.session && pay.session.email) || '' };
+    store.set(LS.session, JSON.stringify(pay.session));
+  }
+  function dropSession() { pay.session = null; store.del(LS.session); }
+  async function signIn(email, password) {
+    var res = await fetch(base() + '/auth/v1/token?grant_type=password', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ email: email, password: password }) });
+    setSession(await readJson(res), email);
+  }
+  async function refreshSession() {
+    var res = await fetch(base() + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: authHeaders(), body: JSON.stringify({ refresh_token: pay.session.refresh_token }) });
+    setSession(await readJson(res));
+  }
+  async function rest(method, path, body, prefer) {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      if (!pay.session) throw new Error('Please sign in.');
+      if (pay.session.expires_at - 60 < Date.now() / 1000) {
+        try { await refreshSession(); } catch (e) { dropSession(); renderAll(); throw new Error('Your session ended. Please sign in again.'); }
+      }
+      var res = await fetch(base() + '/rest/v1/' + path, { method: method, headers: authHeaders({ Authorization: 'Bearer ' + pay.session.access_token, Prefer: prefer || 'return=minimal' }), body: body ? JSON.stringify(body) : undefined });
+      if (res.status === 401 && attempt === 0) {
+        try { await refreshSession(); continue; } catch (e) { dropSession(); renderAll(); throw new Error('Your session ended. Please sign in again.'); }
+      }
+      return readJson(res);
+    }
+  }
+  var fromRow = function (r) {
+    return Lg.cleanEntry({ id: r.id, date: r.entry_date, type: r.type, party: r.party, amount: r.amount, note: r.note, by: r.created_by_name || String(r.created_by_email || '').split('@')[0], updatedBy: r.updated_by_name });
+  };
+  var toRow = function (e, isNew) {
+    var r = { entry_date: e.date, type: e.type, party: e.party, amount: e.amount, note: e.note || '', updated_by_name: myName(), updated_at: new Date().toISOString() };
+    if (isNew) { r.id = e.id; r.created_by_name = e.by || myName(); r.created_by_email = (pay.session && pay.session.email) || ''; }
+    return r;
+  };
+  async function fetchAll() {
+    var all = [], off = 0;
+    for (;;) {
+      var rows = await rest('GET', 'entries?select=*&order=entry_date.asc,created_at.asc&limit=1000&offset=' + off);
+      rows = rows || [];
+      all = all.concat(rows);
+      if (rows.length < 1000) break;
+      off += 1000;
+    }
+    return all.map(fromRow).filter(Boolean);
+  }
+  async function syncNow() {
+    if (!remoteReady()) return;
+    if (pay.syncing) { pay.again = true; return; }
+    pay.syncing = true;
     try {
-      var raw = localStorage.getItem(LS_KEY);
-      if (raw) { var j = JSON.parse(raw); pay.entries = (j.entries || []).map(Lg.cleanEntry).filter(Boolean); }
-    } catch (e) { pay.storageOk = false; }
+      do {
+        pay.again = false;
+        var list = await fetchAll();
+        var sig = JSON.stringify(list);
+        if (sig !== pay.sig) { pay.sig = sig; pay.entries = list; renderPay(); }
+        pay.syncedAt = new Date(); pay.syncError = '';
+      } while (pay.again);
+    } catch (e) { pay.syncError = e.message || 'Could not reach the database.'; }
+    pay.syncing = false;
+    updateSyncText();
   }
-  function savePay() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify({ entries: pay.entries })); }
-    catch (e) { pay.storageOk = false; }
+  function updateSyncText() {
+    var el = $('#sync-text');
+    if (!el) return;
+    el.textContent = pay.syncError ? 'Not connected: ' + pay.syncError + ' (retrying)' : pay.syncedAt ? 'Live. Last updated ' + pad2(pay.syncedAt.getHours()) + ':' + pad2(pay.syncedAt.getMinutes()) + ':' + pad2(pay.syncedAt.getSeconds()) : 'Loading…';
+    el.style.color = pay.syncError ? 'var(--bad)' : '';
   }
-  var newId = function () { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); };
+
+  // ---------- writes (same calls for local and shared mode) ----------
+  async function saveEntry(entry, isNew) {
+    var before = pay.entries.slice();
+    pay.entries = isNew ? pay.entries.concat([entry]) : pay.entries.map(function (x) { return x.id === entry.id ? entry : x; });
+    if (!remoteReady()) { saveLocal(); return; }
+    renderPay();
+    try {
+      if (isNew) await rest('POST', 'entries', [toRow(entry, true)]);
+      else await rest('PATCH', 'entries?id=eq.' + encodeURIComponent(entry.id), toRow(entry, false));
+      syncNow();
+    } catch (e) { pay.entries = before; renderPay(); throw e; }
+  }
+  async function removeEntry(id) {
+    var before = pay.entries.slice();
+    pay.entries = pay.entries.filter(function (x) { return x.id !== id; });
+    if (!remoteReady()) { saveLocal(); return; }
+    renderPay();
+    try { await rest('DELETE', 'entries?id=eq.' + encodeURIComponent(id)); syncNow(); }
+    catch (e) { pay.entries = before; renderPay(); throw e; }
+  }
+  var sigOf = function (e) { return [e.date, e.type, Lg.key(e.party), e.amount, e.note || ''].join('|'); };
+  async function importEntries(list) {
+    if (!remoteReady()) {
+      var byId = new Map(pay.entries.map(function (x) { return [x.id, x]; })), added = 0;
+      list.forEach(function (x) { if (!byId.has(x.id)) added++; byId.set(x.id, x); });
+      pay.entries = Array.from(byId.values()); saveLocal();
+      return { total: list.length, added: added };
+    }
+    var have = new Set(pay.entries.map(sigOf)), ids = new Set(pay.entries.map(function (x) { return x.id; }));
+    var fresh = list.filter(function (e) { return !have.has(sigOf(e)); }).map(function (e) { return Object.assign({}, e, { id: isUuid(e.id) && !ids.has(e.id) ? e.id : uuid() }); });
+    for (var i = 0; i < fresh.length; i += 200) await rest('POST', 'entries', fresh.slice(i, i + 200).map(function (e) { return toRow(e, true); }));
+    await syncNow();
+    return { total: list.length, added: fresh.length };
+  }
+
+  // ---------- helpers for rendering ----------
   var money2 = function (v) { return F.money(v); };
   var sgnUsdt = function (v) { return (v < 0 ? '−' : '') + F.money(Math.abs(v)); };
+  var PARTY_LABEL = { received: 'Client', sent: 'Vendor', loss: 'Client / vendor' };
 
   function partyNames(type) {
     var seen = new Map();
-    pay.entries.forEach(function (e) { if (e.type === type && !seen.has(Lg.key(e.party))) seen.set(Lg.key(e.party), e.party); });
+    pay.entries.forEach(function (e) {
+      if (type === 'loss' || e.type === type) { var k = Lg.key(e.party); if (!seen.has(k)) seen.set(k, e.party); }
+    });
     return Array.from(seen.values()).sort(function (a, b) { return a.localeCompare(b); });
   }
 
@@ -1673,21 +1913,35 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (!list.length) return '<p class="empty">No entries yet.</p>';
     var rows = list.map(function (e) {
       var armed = pay.delArm === e.id;
+      var cls = e.type === 'received' ? 'match' : e.type === 'sent' ? 'only_ours' : 'mismatch';
       return '<tr>' + (showDate ? '<td class="num">' + esc(e.date) + '</td>' : '') +
-        '<td style="text-align:left"><span class="pill ' + (e.type === 'received' ? 'match' : 'only_ours') + '">' + (e.type === 'received' ? 'Received' : 'Sent') + '</span></td>' +
-        '<td style="text-align:left;white-space:normal">' + esc(e.party) + '</td><td class="num">' + money2(e.amount) + '</td>' +
+        '<td style="text-align:left"><span class="pill ' + cls + '">' + TL[e.type] + '</span></td>' +
+        '<td style="text-align:left;white-space:normal"><b>' + esc(e.party) + '</b></td><td class="num">' + money2(e.amount) + '</td>' +
+        '<td style="text-align:left" title="' + (e.updatedBy ? 'Last changed by ' + esc(e.updatedBy) : '') + '">' + esc(e.by || '—') + '</td>' +
         '<td style="text-align:left;white-space:normal" class="muted">' + esc(e.note || '') + '</td>' +
         '<td style="text-align:right"><button type="button" class="linkbtn" data-pedit="' + esc(e.id) + '">Edit</button> ' +
         '<button type="button" class="linkbtn' + (armed ? ' danger' : '') + '" data-pdel="' + esc(e.id) + '">' + (armed ? 'Confirm delete' : 'Delete') + '</button></td></tr>';
     }).join('');
-    return '<div class="tablewrap"><table><thead><tr>' + (showDate ? '<th>Date</th>' : '') + '<th style="text-align:left">Type</th><th style="text-align:left">Party</th><th>Amount (USDT)</th><th style="text-align:left">Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    return '<div class="tablewrap"><table><thead><tr>' + (showDate ? '<th>Date</th>' : '') + '<th style="text-align:left">Type</th><th style="text-align:left">Client / vendor</th><th>Amount (USDT)</th><th style="text-align:left">Entered by</th><th style="text-align:left">Note</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
-  function partyTable(title, arr, total) {
+  function partyTable(title, arr, total, cols) {
     var rows = arr.map(function (x) { return '<tr><td style="white-space:normal">' + esc(x.name) + '</td><td class="num">' + x.count + '</td><td class="num">' + money2(x.total) + '</td></tr>'; }).join('');
     return '<section class="panel"><div class="head"><h2>' + title + '</h2></div>' + (arr.length ?
       '<div class="tablewrap"><table><thead><tr><th>Name</th><th>Entries</th><th>Total (USDT)</th></tr></thead><tbody>' + rows + '<tr class="total"><td>Total</td><td></td><td class="num">' + money2(total) + '</td></tr></tbody></table></div>' :
       '<p class="empty">Nothing in this period.</p>') + '</section>';
+  }
+  function memberTable(arr) {
+    var rows = arr.map(function (x) { return '<tr><td style="white-space:normal">' + esc(x.name) + '</td><td class="num">' + x.count + '</td><td class="num">' + money2(x.received) + '</td><td class="num">' + money2(x.sent) + '</td><td class="num">' + money2(x.loss) + '</td></tr>'; }).join('');
+    return '<section class="panel"><div class="head"><h2>By team member</h2><span class="muted small">Who entered the data</span></div>' + (arr.length ?
+      '<div class="tablewrap"><table><thead><tr><th>Entered by</th><th>Entries</th><th>Received</th><th>Sent</th><th>Loss</th></tr></thead><tbody>' + rows + '</tbody></table></div>' : '<p class="empty">Nothing in this period.</p>') + '</section>';
+  }
+  function whoHtml(parts) {
+    if (!parts.length) return '<span class="muted">—</span>';
+    return parts.map(function (p) {
+      var c = p.type === 'received' ? 'who-r' : p.type === 'sent' ? 'who-s' : 'who-l';
+      return '<span class="who ' + c + '">' + esc(p.name) + (p.type === 'loss' ? ' (loss)' : '') + ' <b class="num">' + (p.type === 'received' ? '+' : '−') + money2(p.total) + '</b></span>';
+    }).join('');
   }
 
   function periodCtx() {
@@ -1702,77 +1956,185 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   function renderPay() {
-    // form chrome
-    $('#pf-party-label').textContent = pay.type === 'received' ? 'Client' : 'Vendor';
+    $('#pf-party-label').textContent = PARTY_LABEL[pay.type];
+    $('#pf-note').placeholder = pay.type === 'loss' ? 'Which invoice, and why it did not match' : 'Transaction hash, reference, anything useful';
     document.querySelectorAll('[data-ptype]').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.ptype === pay.type)); });
     $('#pf-list').innerHTML = partyNames(pay.type).map(function (n) { return '<option value="' + esc(n) + '"></option>'; }).join('');
     $('#pf-title').textContent = pay.editing ? 'Edit entry' : 'Add an entry';
     $('#pf-submit').textContent = pay.editing ? 'Save changes' : 'Add entry';
     $('#pf-cancel').hidden = !pay.editing;
 
-    // entries on the chosen date
     var date = $('#pf-date').value;
     var dayList = date ? pay.entries.filter(function (e) { return e.date === date; }) : [];
     var ds = Lg.summarize(dayList);
-    $('#pay-day').innerHTML = '<div class="sub-h">Entries on ' + esc(date ? Lg.full(date) : 'this date') + (dayList.length ? ' · received <span class="num">' + money2(ds.received) + '</span> · sent <span class="num">' + money2(ds.sent) + '</span>' : '') + '</div>' + entryTable(dayList, false);
+    $('#pay-day').innerHTML = '<div class="sub-h">Entries on ' + esc(date ? Lg.full(date) : 'this date') + (dayList.length ? ' · received <span class="num">' + money2(ds.received) + '</span> · sent <span class="num">' + money2(ds.sent) + '</span> · loss <span class="num">' + money2(ds.loss) + '</span>' : '') + '</div>' + entryTable(dayList, false);
 
-    // period report
     var c = periodCtx(), s = c.summary;
-    var rangeTxt = Lg.rangeLabel(c.from, c.to);
-    var navLabel = pay.mode === 'week' ? rangeTxt : Lg.monthLabel(pay.month);
+    var navLabel = pay.mode === 'week' ? Lg.rangeLabel(c.from, c.to) : Lg.monthLabel(pay.month);
     var rowsHtml = c.rows.map(function (x) {
-      return '<tr><td>' + esc(x.label) + (x.part ? ' <span class="muted small">(part of week)</span>' : '') + '</td><td class="num">' + money2(x.received) + '</td><td class="num">' + money2(x.sent) + '</td><td class="num' + (x.profit < 0 ? ' diffbad' : '') + '">' + sgnUsdt(x.profit) + '</td></tr>';
+      return '<tr><td>' + esc(x.label) + (x.part ? ' <span class="muted small">(part of week)</span>' : '') + '</td><td class="num">' + money2(x.received) + '</td><td class="num">' + money2(x.sent) + '</td>' +
+        '<td class="num' + (x.gross < 0 ? ' diffbad' : '') + '">' + sgnUsdt(x.gross) + '</td><td class="num' + (x.loss > 0 ? ' diffbad' : '') + '">' + money2(x.loss) + '</td>' +
+        '<td class="num' + (x.profit < 0 ? ' diffbad' : '') + '"><b>' + sgnUsdt(x.profit) + '</b></td><td class="whocell">' + whoHtml(x.parts) + '</td></tr>';
     }).join('');
+    var tile = function (cls, v, k) { return '<div class="' + cls + '"><span class="v">' + v + '</span><span class="k">' + k + '</span></div>'; };
     var html = '<section class="panel">' +
       '<div class="head"><h2>Report</h2><div class="seg" role="group" aria-label="Report period"><button type="button" data-pmode="week" aria-pressed="' + (pay.mode === 'week') + '">Week</button><button type="button" data-pmode="month" aria-pressed="' + (pay.mode === 'month') + '">Month</button></div></div>' +
       '<div class="pnav"><button type="button" class="sq" data-pnav="-1" aria-label="Previous ' + pay.mode + '">‹</button><div class="plabel">' + esc(navLabel) + '</div><button type="button" class="sq" data-pnav="1" aria-label="Next ' + pay.mode + '">›</button><button type="button" class="btn ghost" data-pnow>This ' + pay.mode + '</button></div>' +
-      '<div class="counts" style="border-top:0"><div class="good"><span class="v">' + money2(s.received) + '</span><span class="k">Received from clients (USDT)</span></div>' +
-      '<div class="warn"><span class="v">' + money2(s.sent) + '</span><span class="k">Paid to vendors (USDT)</span></div>' +
-      '<div class="' + (s.profit < 0 ? 'bad' : 'good') + '"><span class="v">' + sgnUsdt(s.profit) + '</span><span class="k">Profit (received − paid)</span></div></div>' +
-      '<div class="sub-h">' + (pay.mode === 'week' ? 'Day by day' : 'Week by week') + '</div>' +
-      '<div class="tablewrap"><table><thead><tr><th>' + c.rowLabel + '</th><th>Received</th><th>Sent</th><th>Profit</th></tr></thead><tbody>' + rowsHtml +
-      '<tr class="total"><td>Total</td><td class="num">' + money2(s.received) + '</td><td class="num">' + money2(s.sent) + '</td><td class="num">' + sgnUsdt(s.profit) + '</td></tr></tbody></table></div>' +
+      '<div class="counts" style="border-top:0">' +
+      tile('good', money2(s.received), 'Received from clients') + tile('warn', money2(s.sent), 'Paid to vendors') +
+      tile(s.gross < 0 ? 'bad' : 'good', sgnUsdt(s.gross), 'Gross profit (received − paid)') + tile(s.loss > 0 ? 'bad' : '', money2(s.loss), 'Mismatch loss') +
+      tile(s.profit < 0 ? 'bad' : 'good', sgnUsdt(s.profit), 'Net profit (gross − loss)') + '</div>' +
+      '<div class="sub-h">' + (pay.mode === 'week' ? 'Day by day' : 'Week by week') + ' · all amounts in USDT</div>' +
+      '<div class="tablewrap"><table><thead><tr><th>' + c.rowLabel + '</th><th>Received</th><th>Sent</th><th>Gross profit</th><th>Mismatch loss</th><th>Net profit</th><th style="text-align:left">Who (client / vendor)</th></tr></thead><tbody>' + rowsHtml +
+      '<tr class="total"><td>Total</td><td class="num">' + money2(s.received) + '</td><td class="num">' + money2(s.sent) + '</td><td class="num">' + sgnUsdt(s.gross) + '</td><td class="num">' + money2(s.loss) + '</td><td class="num">' + sgnUsdt(s.profit) + '</td><td></td></tr></tbody></table></div>' +
       '<div class="exports"><button type="button" class="btn" data-pexp="xlsx">Download Excel</button><button type="button" class="btn" data-pexp="pdf">Download PDF</button>' +
       '<button type="button" class="btn ghost" data-pexp="backup">Backup all data</button><label class="btn ghost" style="cursor:pointer">Restore backup<input type="file" id="pay-restore" accept=".json,application/json" class="sr-only"></label>' +
       '<div class="status" id="pay-status">' + esc(pay.status) + '</div></div></section>' +
       '<div class="grid2">' + partyTable('Received, by client', s.clients, s.received) + partyTable('Paid, by vendor', s.vendors, s.sent) + '</div>' +
+      '<div class="grid2">' + partyTable('Mismatch loss, by client / vendor', s.losses, s.loss) + memberTable(s.members) + '</div>' +
       '<section class="panel"><div class="head"><h2>All entries in this ' + pay.mode + '</h2><span class="muted small">' + s.count + ' entries</span></div>' + entryTable(c.entries.slice().sort(function (a, b) { return a.date < b.date ? -1 : a.date > b.date ? 1 : 0; }), true) + '</section>' +
-      (pay.storageOk ? '' : '<p class="warnline">This browser is not saving data (private window or blocked storage). Use "Backup all data" before you close the page.</p>');
+      (pay.storageOk ? '' : '<p class="warnline">This browser is not saving data on this device (private window or blocked storage). Use "Backup all data" before you close the page.</p>');
     $('#pay-out').innerHTML = html;
   }
 
+  // ---------- connection / sign-in panel ----------
+  function setupHtml() {
+    var cfg = { url: pay.draftUrl != null ? pay.draftUrl : (pay.cfg ? pay.cfg.url : ''), key: pay.draftKey != null ? pay.draftKey : (pay.cfg ? pay.cfg.key : '') };
+    return '<div class="setup"><ol class="steps">' +
+      '<li>Create a free project at <b>supabase.com</b>.</li>' +
+      '<li>Open <b>SQL Editor</b>, paste the code below, press <b>Run</b>.</li>' +
+      '<li>Open <b>Authentication → Users → Add user</b>. Add each team member with an email and password. Tick <b>Auto Confirm User</b>.</li>' +
+      '<li>Open <b>Authentication → Sign In / Providers</b> and turn off <b>Allow new users to sign up</b>.</li>' +
+      '<li>Open <b>Project Settings → API</b>. Copy the <b>Project URL</b> and the <b>anon public</b> key into the boxes below.</li></ol>' +
+      '<textarea id="cfg-sql" class="sql" readonly rows="6">' + esc(SETUP_SQL) + '</textarea>' +
+      '<div class="actions"><button type="button" class="btn ghost" data-conn="copy-sql">Copy SQL</button></div>' +
+      '<div class="fgrid"><label class="wide">Project URL<input type="text" id="cfg-url" placeholder="https://xxxxxxxx.supabase.co" value="' + esc(cfg.url) + '"></label>' +
+      '<label class="wide">anon public key<input type="text" id="cfg-key" placeholder="eyJ..." value="' + esc(cfg.key) + '"></label></div>' +
+      '<div class="actions"><button type="button" class="btn" data-conn="save-cfg">Save and connect</button>' +
+      (pay.cfg ? '<button type="button" class="btn ghost" data-conn="copy-link">Copy team link</button><button type="button" class="btn ghost" data-conn="disconnect">Disconnect (use this device only)</button>' : '') +
+      '</div></div>';
+  }
+  function renderConn() {
+    var el = $('#pay-conn'), msg = pay.connMsg ? '<p class="' + (pay.connBad ? 'errtxt' : 'muted') + ' small" style="margin:0;color:' + (pay.connBad ? 'var(--bad)' : '') + '" role="status">' + esc(pay.connMsg) + '</p>' : '';
+    var nameInput = '<label class="inline">Your name<input type="text" id="my-name" maxlength="60" value="' + esc(pay.myName) + '" placeholder="Shown on your entries"></label>';
+    var html;
+    if (!pay.cfg) {
+      html = '<div class="head"><h2>Where your data is saved</h2><span class="muted small">This device only</span></div><div class="body conn">' +
+        '<p style="margin:0">Entries are saved in this browser. To let your whole team add and see the same entries live, connect a team database.</p>' +
+        '<div class="actions">' + nameInput + '<button type="button" class="btn ghost" data-conn="setup">' + (pay.showSetup ? 'Hide setup' : 'Set up team database') + '</button></div>' + msg +
+        (pay.showSetup ? setupHtml() : '') + '</div>';
+    } else if (!pay.session) {
+      html = '<div class="head"><h2>Team sign in</h2><span class="muted small">Shared database</span></div><div class="body conn">' +
+        '<div class="fgrid"><label>Email<input type="text" id="si-email" autocomplete="username" inputmode="email" value="' + esc(pay.siEmail || '') + '"></label><label>Password<input type="password" id="si-pass" autocomplete="current-password"></label>' +
+        '<label>Your name<input type="text" id="my-name" maxlength="60" value="' + esc(pay.myName) + '" placeholder="Shown on your entries"></label></div>' +
+        '<div class="actions"><button type="button" class="btn" data-conn="signin">Sign in</button><button type="button" class="btn ghost" data-conn="setup">' + (pay.showSetup ? 'Hide settings' : 'Database settings') + '</button></div>' + msg +
+        (pay.showSetup ? setupHtml() : '') + '</div>';
+    } else {
+      var local = readLocal().length;
+      html = '<div class="head"><h2>Team database</h2><span class="muted small" id="sync-text"></span></div><div class="body conn">' +
+        '<div class="actions"><span>Signed in as <b>' + esc(myName() || pay.session.email) + '</b> <span class="muted small">(' + esc(pay.session.email) + ')</span></span>' + nameInput +
+        '<button type="button" class="btn ghost" data-conn="sync">Refresh now</button><button type="button" class="btn ghost" data-conn="signout">Sign out</button><button type="button" class="btn ghost" data-conn="setup">' + (pay.showSetup ? 'Hide settings' : 'Settings') + '</button></div>' +
+        (local ? '<div class="actions"><span class="small muted">This device also has ' + local + ' older entries saved locally.</span><button type="button" class="btn ghost" data-conn="upload-local">Upload them to the team database</button></div>' : '') + msg +
+        (pay.showSetup ? setupHtml() : '') + '</div>';
+    }
+    el.innerHTML = html;
+    updateSyncText();
+  }
+  function renderAll() {
+    renderConn();
+    $('#pay-app').hidden = !!(pay.cfg && !pay.session);
+    if (!$('#pay-app').hidden) renderPay();
+  }
+  function connNote(msg, bad) { pay.connMsg = msg || ''; pay.connBad = !!bad; renderConn(); }
+
+  function reloadSource() {
+    pay.sig = ''; pay.syncedAt = null; pay.syncError = '';
+    if (!pay.cfg) pay.entries = readLocal();
+    else { pay.entries = []; if (pay.session) syncNow(); }
+    renderAll();
+  }
+
+  async function connAction(action) {
+    if (action === 'setup') { pay.showSetup = !pay.showSetup; return renderConn(); }
+    if (action === 'copy-sql') {
+      try { await navigator.clipboard.writeText(SETUP_SQL); return connNote('SQL copied.'); } catch (e) { var t = $('#cfg-sql'); t.focus(); t.select(); return connNote('Press Ctrl+C to copy the selected SQL.'); }
+    }
+    if (action === 'copy-link') {
+      var link = location.href.split('#')[0] + '#cfg=' + encodeURIComponent(btoa(JSON.stringify({ url: pay.cfg.url, key: pay.cfg.key })));
+      try { await navigator.clipboard.writeText(link); return connNote('Team link copied. Send it to your team. It already contains the database address.'); } catch (e) { return connNote(link); }
+    }
+    if (action === 'save-cfg') {
+      var url = $('#cfg-url').value.trim().replace(/\/+$/, ''), key = $('#cfg-key').value.trim();
+      if (!/^https:\/\/[^\s/]+\.[^\s/]+$/.test(url)) return connNote('Enter the Project URL, like https://abcdxyz.supabase.co', true);
+      if (key.length < 20) return connNote('Paste the anon public key.', true);
+      connNote('Checking…');
+      try {
+        var res = await fetch(url + '/auth/v1/settings', { headers: { apikey: key } });
+        if (!res.ok) throw new Error('The database did not accept this URL or key (error ' + res.status + ').');
+      } catch (e) { return connNote(e.message && !/fetch/i.test(e.message) ? e.message : 'Could not reach this address. Check the Project URL.', true); }
+      pay.cfg = { url: url, key: key }; store.set(LS.cfg, JSON.stringify(pay.cfg)); dropSession(); pay.draftUrl = pay.draftKey = null;
+      pay.showSetup = false; pay.connMsg = 'Connected. Sign in with the email and password you created in Supabase.'; pay.connBad = false;
+      return reloadSource();
+    }
+    if (action === 'disconnect') {
+      pay.cfg = null; store.del(LS.cfg); dropSession(); pay.draftUrl = pay.draftKey = null; pay.showSetup = false; pay.connMsg = 'Disconnected. Using this device only.'; pay.connBad = false;
+      return reloadSource();
+    }
+    if (action === 'signin') {
+      var email = $('#si-email').value.trim(), pass = $('#si-pass').value;
+      if (!email || !pass) return connNote('Enter your email and password.', true);
+      var nm = ($('#my-name') && $('#my-name').value.trim()) || '';
+      if (nm) { pay.myName = nm; store.set(LS.name, nm); }
+      connNote('Signing in…');
+      try { await signIn(email, pass); } catch (e) { return connNote(/invalid/i.test(e.message) ? 'Wrong email or password.' : e.message, true); }
+      pay.connMsg = ''; pay.showSetup = false;
+      return reloadSource();
+    }
+    if (action === 'signout') {
+      try { await fetch(base() + '/auth/v1/logout', { method: 'POST', headers: authHeaders({ Authorization: 'Bearer ' + pay.session.access_token }) }); } catch (e) {}
+      dropSession(); pay.connMsg = ''; return reloadSource();
+    }
+    if (action === 'sync') { await syncNow(); return; }
+    if (action === 'upload-local') {
+      var list = readLocal();
+      connNote('Uploading ' + list.length + ' entries…');
+      try { var r = await importEntries(list); connNote('Uploaded ' + r.added + ' new entries (' + (r.total - r.added) + ' were already there).'); }
+      catch (e) { connNote('Upload failed: ' + e.message, true); }
+    }
+  }
+
+  // ---------- form ----------
   function setPayStatus(msg) { pay.status = msg; var el = $('#pay-status'); if (el) el.textContent = msg; }
   function formMsg(msg, bad) { var m = $('#pf-msg'); m.textContent = msg; m.style.color = bad ? 'var(--bad)' : ''; }
-
   function resetForm(keepDate) {
     pay.editing = null;
     $('#pf-party').value = ''; $('#pf-amount').value = ''; $('#pf-note').value = '';
     if (!keepDate) $('#pf-date').value = todayYmd();
   }
 
-  function onSubmit(e) {
+  async function onSubmit(e) {
     e.preventDefault();
+    if (pay.busy) return;
     var date = $('#pf-date').value, party = $('#pf-party').value.trim().replace(/\s+/g, ' ');
     var amount = Number($('#pf-amount').value.replace(/[,\s]/g, ''));
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return formMsg('Pick a date.', true);
-    if (!party) return formMsg('Enter the ' + (pay.type === 'received' ? 'client' : 'vendor') + ' name.', true);
+    if (!party) return formMsg('Enter the ' + PARTY_LABEL[pay.type].toLowerCase() + ' name.', true);
     if (!(amount > 0) || !isFinite(amount)) return formMsg('Enter an amount greater than zero.', true);
-    var entry = { id: pay.editing || newId(), date: date, type: pay.type, party: party, amount: amount, note: $('#pf-note').value.trim() };
-    // reuse the existing spelling of a name that differs only by case/spaces
-    var same = pay.entries.filter(function (x) { return x.id !== entry.id && x.type === entry.type && Lg.key(x.party) === Lg.key(party); })[0];
+    var old = pay.editing ? pay.entries.filter(function (x) { return x.id === pay.editing; })[0] : null;
+    var entry = { id: pay.editing || uuid(), date: date, type: pay.type, party: party, amount: amount, note: $('#pf-note').value.trim(), by: old ? old.by : myName(), updatedBy: myName() };
+    var same = pay.entries.filter(function (x) { return x.id !== entry.id && Lg.key(x.party) === Lg.key(party); })[0];
     if (same) entry.party = same.party;
-    if (pay.editing) {
-      pay.entries = pay.entries.map(function (x) { return x.id === entry.id ? entry : x; });
-      formMsg('Changes saved.');
-    } else {
-      pay.entries.push(entry);
-      formMsg('Added ' + F.money(amount) + ' USDT ' + (entry.type === 'received' ? 'from ' : 'to ') + entry.party + '.');
-    }
-    savePay();
-    pay.week = Lg.weekStart(date); pay.month = date.slice(0, 7);
-    resetForm(true);
-    renderPay();
-    $('#pf-party').focus();
+    var wasEdit = !!pay.editing;
+    pay.busy = true;
+    try {
+      await saveEntry(entry, !wasEdit);
+      formMsg(wasEdit ? 'Changes saved.' : 'Added ' + F.money(amount) + ' USDT (' + TL[entry.type].toLowerCase() + ') ' + (entry.type === 'sent' ? 'to ' : 'for ') + entry.party + '.');
+      pay.week = Lg.weekStart(date); pay.month = date.slice(0, 7);
+      resetForm(true);
+      renderPay();
+      $('#pf-party').focus();
+    } catch (err) { formMsg('Could not save: ' + (err.message || err), true); }
+    pay.busy = false;
   }
 
   function startEdit(id) {
@@ -1787,11 +2149,11 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
   }
 
   var delTimer = null;
-  function askDelete(id) {
+  async function askDelete(id) {
     if (pay.delArm === id) {
-      pay.entries = pay.entries.filter(function (x) { return x.id !== id; });
-      pay.delArm = null; savePay();
+      pay.delArm = null;
       if (pay.editing === id) resetForm(true);
+      try { await removeEntry(id); } catch (e) { setPayStatus('Could not delete: ' + e.message); }
     } else {
       pay.delArm = id; clearTimeout(delTimer);
       delTimer = setTimeout(function () { pay.delArm = null; renderPay(); }, 4000);
@@ -1830,18 +2192,36 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var j = JSON.parse(await file.text());
       var list = (Array.isArray(j) ? j : j.entries || []).map(Lg.cleanEntry).filter(Boolean);
       if (!list.length) return setPayStatus('No valid entries found in this file.');
-      var byId = new Map(pay.entries.map(function (x) { return [x.id, x]; }));
-      var added = 0;
-      list.forEach(function (x) { if (!byId.has(x.id)) added++; byId.set(x.id, x); });
-      pay.entries = Array.from(byId.values());
-      savePay(); renderPay();
-      setPayStatus('Restored ' + list.length + ' entries (' + added + ' new).');
-    } catch (e) { setPayStatus('This file is not a valid backup.'); }
+      var r = await importEntries(list);
+      renderPay();
+      setPayStatus('Restored ' + r.total + ' entries (' + r.added + ' new).');
+    } catch (e) { setPayStatus(e instanceof SyntaxError ? 'This file is not a valid backup.' : 'Restore failed: ' + e.message); }
   }
 
+  // from the Invoice mismatch page
+  function prefillLoss() {
+    var A = state.ours.data, B = state.theirs.data;
+    if (!A || !B) return;
+    var res = R.compare(A, B, state.tol, state.manual);
+    var amt = res.totals.filter(function (t) { return t.key === 'amount'; })[0];
+    showPage('payments');
+    try { history.replaceState(null, '', '#payments'); } catch (e) {}
+    resetForm(false);
+    pay.type = 'loss';
+    $('#pf-amount').value = amt ? Math.abs(amt.diff).toFixed(2) : '';
+    $('#pf-note').value = 'Invoice mismatch: ' + (A.meta.invoiceNo || 'ours') + ' vs ' + (B.meta.invoiceNo || 'theirs');
+    formMsg('Check the amount, type the client / vendor name, then press Add entry.');
+    renderPay();
+    $('#pay-add').scrollIntoView({ block: 'start' });
+    $('#pf-party').focus();
+  }
+  window.__prefillLoss = prefillLoss;
+
+  // ---------- events ----------
   var vp = $('#view-payments');
   vp.addEventListener('click', function (e) {
     var t;
+    if ((t = e.target.closest('[data-conn]'))) { connAction(t.dataset.conn); return; }
     if ((t = e.target.closest('[data-ptype]'))) { pay.type = t.dataset.ptype; renderPay(); return; }
     if ((t = e.target.closest('[data-pmode]'))) { pay.mode = t.dataset.pmode; renderPay(); return; }
     if ((t = e.target.closest('[data-pnav]'))) {
@@ -1859,9 +2239,19 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     if (e.target.id === 'pf-date') renderPay();
     if (e.target.id === 'pay-restore' && e.target.files[0]) { restore(e.target.files[0]); e.target.value = ''; }
   });
+  vp.addEventListener('input', function (e) {
+    if (e.target.id === 'my-name') { pay.myName = e.target.value.trim(); store.set(LS.name, pay.myName); }
+    if (e.target.id === 'si-email') pay.siEmail = e.target.value;
+    if (e.target.id === 'cfg-url') pay.draftUrl = e.target.value;
+    if (e.target.id === 'cfg-key') pay.draftKey = e.target.value;
+  });
+  vp.addEventListener('keydown', function (e) {
+    if (e.key !== 'Enter' || e.target.tagName !== 'INPUT') return;
+    if (e.target.closest('#pay-form')) onSubmit(e);
+    else if (e.target.id === 'si-email' || e.target.id === 'si-pass') connAction('signin');
+  });
   $('#pay-form').addEventListener('submit', function (e) { e.preventDefault(); });
   $('#pf-submit').addEventListener('click', onSubmit);
-  $('#pay-form').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') onSubmit(e); });
 
   function showPage(pg) {
     $('#view-mismatch').hidden = pg !== 'mismatch';
@@ -1870,7 +2260,7 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
       var a = $('#tab-' + k);
       if (k === pg) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
     });
-    if (pg === 'payments') renderPay();
+    if (pg === 'payments') { renderAll(); if (remoteReady()) syncNow(); }
   }
   function route() { showPage(location.hash === '#payments' ? 'payments' : 'mismatch'); }
   document.querySelector('.tabs').addEventListener('click', function (e) {
@@ -1879,10 +2269,27 @@ function(t){t.__bidiEngine__=t.prototype.__bidiEngine__=function(t){var r,n,i,a,
     showPage(b.dataset.page);
     try { history.replaceState(null, '', '#' + b.dataset.page); } catch (err) { try { location.hash = b.dataset.page; } catch (e2) {} }
   });
-  loadPay();
-  $('#pf-date').value = todayYmd();
-  window.addEventListener('hashchange', route);
-  route();
+
+  // start-up: team link (#cfg=...), saved settings, saved session
+  (function init() {
+    var m = location.hash.match(/^#cfg=([^&]+)/);
+    if (m) {
+      try {
+        var c = JSON.parse(atob(decodeURIComponent(m[1])));
+        if (c && /^https:\/\//.test(c.url) && c.key) { store.set(LS.cfg, JSON.stringify({ url: c.url, key: c.key })); store.del(LS.session); }
+      } catch (e) {}
+      try { history.replaceState(null, '', location.href.split('#')[0] + '#payments'); } catch (e) {}
+    }
+    try { pay.cfg = JSON.parse(store.get(LS.cfg) || 'null'); } catch (e) { pay.cfg = null; }
+    try { pay.session = pay.cfg ? JSON.parse(store.get(LS.session) || 'null') : null; } catch (e) { pay.session = null; }
+    pay.myName = store.get(LS.name) || '';
+    $('#pf-date').value = todayYmd();
+    pay.entries = pay.cfg ? [] : readLocal();
+    window.addEventListener('hashchange', route);
+    route();
+    setInterval(function () { if (remoteReady() && !$('#view-payments').hidden && document.visibilityState === 'visible') syncNow(); }, 6000);
+    document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible' && remoteReady() && !$('#view-payments').hidden) syncNow(); });
+  })();
 
   render();
   try {
